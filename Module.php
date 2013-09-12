@@ -49,7 +49,10 @@ class Module {
                 },
                 'zfcuser_user_mapper' => function ($sm) {
                     return new \ZfcUserLdap\Mapper\User(
-                            $sm->get('ldap_interface'), $sm->get('zfcuser_module_options')
+                        $sm->get('ldap_interface'),
+                        $sm->get('zfcuser_module_options'),
+                        $sm->get('Config')['ldap_group_mapper'],
+                        $sm->get('User\Entity\RoleRepository')
                     );
                 },
             ),
