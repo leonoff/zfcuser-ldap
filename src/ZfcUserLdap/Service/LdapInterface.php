@@ -18,6 +18,7 @@ use Zend\Ldap\Exception\LdapException;
 class LdapInterface {
 
     private $config;
+    /** @var  \Zend\Ldap\Ldap */
     protected $ldap;
     protected $entity;
     protected $active_server;
@@ -26,6 +27,7 @@ class LdapInterface {
     public function __construct($config) {
         $this->config = $config;
     }
+
 
     /**
      *
@@ -88,7 +90,7 @@ class LdapInterface {
             return $this->error;
         }
         try {
-            $hm = $this->ldap->search("mail=$email", $this->active_server['baseDn'], \Zend\Ldap\Ldap::SEARCH_SCOPE_ONE);
+            $hm = $this->ldap->search("mail=$email", $this->active_server['baseDn'], \Zend\Ldap\Ldap::SEARCH_SCOPE_SUB);
             foreach ($hm as $item) {
                 $this->log($item);
                 return $item;
@@ -108,7 +110,7 @@ class LdapInterface {
             return $this->error;
         }
         try {
-            $hm = $this->ldap->search("uidnumber=$id", $this->active_server['baseDn'], \Zend\Ldap\Ldap::SEARCH_SCOPE_ONE);
+            $hm = $this->ldap->search("pager=$id", $this->active_server['baseDn'], \Zend\Ldap\Ldap::SEARCH_SCOPE_SUB);
             foreach ($hm as $item) {
                 $this->log($item);
                 return $item;
@@ -131,6 +133,7 @@ class LdapInterface {
         try {
             $adapter = new AuthAdapter($options, $username, $password);
             $result = $auth->authenticate($adapter);
+
             if ($result->isValid()) {
                 $this->log("$username logged in successfully!");
                 return TRUE;

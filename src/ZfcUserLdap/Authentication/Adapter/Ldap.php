@@ -46,8 +46,12 @@ class Ldap implements AdapterChain, ServiceManagerAwareInterface {
     protected $storage;
 
     public function authenticate(AuthEvent $e) {
+
         $mapper = new \ZfcUserLdap\Mapper\User(
-                $this->getServiceManager()->get('ldap_interface'), $this->getServiceManager()->get('zfcuser_module_options')
+            $this->getServiceManager()->get('ldap_interface'),
+            $this->getServiceManager()->get('zfcuser_module_options'),
+            $this->getServiceManager()->get('Config')['ldap_group_mapper'],
+            $this->getServiceManager()->get('User\Entity\RoleRepository')
         );
         $this->setMapper($mapper);
         if ($this->isSatisfied()) {
