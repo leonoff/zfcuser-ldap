@@ -72,7 +72,7 @@ class User extends ZfcUserMapper
     {
         $this->entity->setDisplayName($obj['cn']['0']);
         $this->entity->setEmail($obj['mail']['0']);
-        $this->entity->setId($obj['pager'][0]);
+        $this->entity->setId($obj['userprincipalname'][0]);
         $this->entity->setUsername($obj['samaccountname']['0']);
 
         $this->setRole($obj);
