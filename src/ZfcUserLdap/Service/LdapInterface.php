@@ -110,7 +110,7 @@ class LdapInterface {
             return $this->error;
         }
         try {
-            $hm = $this->ldap->search("pager=$id", $this->active_server['baseDn'], \Zend\Ldap\Ldap::SEARCH_SCOPE_SUB);
+            $hm = $this->ldap->search("userprincipalname=$id", $this->active_server['baseDn'], \Zend\Ldap\Ldap::SEARCH_SCOPE_SUB);
             foreach ($hm as $item) {
                 $this->log($item);
                 return $item;
