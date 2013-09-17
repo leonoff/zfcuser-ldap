@@ -70,6 +70,10 @@ class User extends ZfcUserMapper
 
     public function setEntity($obj)
     {
+        if (!is_array($obj)) {
+            $this->entity = null;
+            return;
+        }
         $this->entity->setDisplayName($obj['cn']['0']);
         $this->entity->setEmail($obj['mail']['0']);
         $this->entity->setId($obj['userprincipalname'][0]);

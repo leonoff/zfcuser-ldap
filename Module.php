@@ -39,18 +39,32 @@ class Module {
         return array(
             'invokables' => array(
                 'ZfcUserLdap\Authentication\Adapter\Ldap' => 'ZfcUserLdap\Authentication\Adapter\Ldap',
+                'ZfcUserLdap\Authentication\Storage\Db' => 'ZfcUserLdap\Authentication\Storage\Db',
             ),
             'factories' => array(
+                'zfcuser_auth_service' => function ($sm) {
+                    return new \Zend\Authentication\AuthenticationService(
+                        $sm->get('ZfcUserLdap\Authentication\Storage\Db'),
+                        $sm->get('ZfcUserLdap\Authentication\Adapter\AdapterChain')
+                    );
+                },
+
+                'ZfcUserLdap\Authentication\Adapter\AdapterChain' => 'ZfcUserLdap\Authentication\Adapter\AdapterChainServiceFactory',
+
+                // Start of Hack. We must forget about classic zfc-user Adapter Chain at all!
+                'ZfcUser\Authentication\Adapter\AdapterChain' => 'ZfcUserLdap\Authentication\Adapter\AdapterChainServiceFactory',
+                // End of Hack
+
                 'zfcuser_ldap_service' => 'ZfcUserLdap\ServiceFactory\Ldap',
                 'ldap_interface' => 'ZfcUserLdap\ServiceFactory\LdapServiceFactory',
-                'zfcuser_module_options' => function ($sm) {
+                'zfcuser_ldap_module_options' => function ($sm) {
                     $config = $sm->get('Configuration');
                     return new Options\ModuleOptions(isset($config['zfcuser']) ? $config['zfcuser'] : array());
                 },
-                'zfcuser_user_mapper' => function ($sm) {
+                'zfcuser_ldap_user_mapper' => function ($sm) {
                     return new \ZfcUserLdap\Mapper\User(
                         $sm->get('ldap_interface'),
-                        $sm->get('zfcuser_module_options'),
+                        $sm->get('zfcuser_ldap_module_options'),
                         $sm->get('Config')['ldap_group_mapper'],
                         $sm->get('User\Entity\RoleRepository')
                     );

@@ -9,9 +9,6 @@
  */
 namespace ZfcUserLdap\Service;
 
-use Zend\Log\Logger;
-use Zend\Log\Writer\Stream as LogWriter;
-use Zend\Authentication\AuthenticationService;
 use Zend\Authentication\Adapter\Ldap as AuthAdapter;
 use Zend\Ldap\Exception\LdapException;
 
@@ -26,29 +23,6 @@ class LdapInterface {
 
     public function __construct($config) {
         $this->config = $config;
-    }
-
-
-    /**
-     *
-     * @param type $msg
-     * @param type $log_level EMERG=0, ALERT=1, CRIT=2, ERR=3, WARN=4, NOTICE=5, INFO=6, DEBUG=7
-     */
-    public function log($msg, $priority = 5) {
-        $log_dir = "data/logs";
-        if (!is_dir($log_dir)) {
-            try {
-                mkdir($log_dir);
-            } catch (Exception $exc) {
-                echo "<h1>Could not create log directory " . $log_dir . "</h1>";
-                echo $exc->getMessage();
-            }
-        }
-        $logger = new Logger;
-        $writer = new LogWriter($log_dir . '/ldap.log');
-        $logger->addWriter($writer);
-        Logger::registerErrorHandler($logger);
-        $logger->log($priority, $msg);
     }
 
     public function bind() {
@@ -74,13 +48,16 @@ class LdapInterface {
         } catch (\Exception $exc) {
             return $this->error;
         }
-        $entryDN = "uid=$username," . $this->active_server['baseDn'];
+
         try {
-            $hm = $this->ldap->getEntry($entryDN);
-            return $hm;
-        } catch (LdapException $exc) {
-            return $exc->getMessage();
-        }
+            $hm = $this->ldap->search("samaccountname=$username", $this->active_server['baseDn'], \Zend\Ldap\Ldap::SEARCH_SCOPE_SUB);
+            foreach ($hm as $item) {
+                return $item;
+            }
+
+        } catch (LdapException $exc) {}
+
+        return false;
     }
 
     public function findByEmail($email) {
@@ -89,18 +66,16 @@ class LdapInterface {
         } catch (\Exception $exc) {
             return $this->error;
         }
+
         try {
             $hm = $this->ldap->search("mail=$email", $this->active_server['baseDn'], \Zend\Ldap\Ldap::SEARCH_SCOPE_SUB);
             foreach ($hm as $item) {
-                $this->log($item);
                 return $item;
             }
-            return FALSE;
-        } catch (LdapException $exc) {
-            $msg = $exc->getMessage();
-            $this->log($msg);
-            return $msg;
-        }
+
+        } catch (LdapException $exc) {}
+
+        return false;
     }
 
     public function findById($id) {
@@ -109,17 +84,16 @@ class LdapInterface {
         } catch (\Exception $exc) {
             return $this->error;
         }
+
         try {
             $hm = $this->ldap->search("userprincipalname=$id", $this->active_server['baseDn'], \Zend\Ldap\Ldap::SEARCH_SCOPE_SUB);
             foreach ($hm as $item) {
-                $this->log($item);
                 return $item;
             }
-            return FALSE;
-        } catch (LdapException $exc) {
-            $msg = $exc->getMessage();
-            $this->log($msg);
-        }
+
+        } catch (LdapException $exc) {}
+
+        return false;
     }
 
     function authenticate($username, $password) {
@@ -129,21 +103,14 @@ class LdapInterface {
             return $this->error;
         }
         $options = $this->config;
-        $auth = new AuthenticationService();
+
         try {
             $adapter = new AuthAdapter($options, $username, $password);
-            $result = $auth->authenticate($adapter);
+            $result = $adapter->authenticate($adapter);
 
-            if ($result->isValid()) {
-                $this->log("$username logged in successfully!");
-                return TRUE;
-            } else {
-                $messages = $result->getMessages();
-                return $messages;
-            }
+            return $result;
         } catch (LdapException $exc) {
             $msg = $exc->getMessage();
-            $this->log($msg);
         }
     }
 

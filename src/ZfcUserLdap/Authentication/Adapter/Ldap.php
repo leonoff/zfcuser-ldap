@@ -15,10 +15,11 @@ use Zend\ServiceManager\ServiceManagerAwareInterface;
 use Zend\ServiceManager\ServiceManager;
 use ZfcUserLdap\Mapper\User as UserMapperInterface;
 use ZfcUser\Options\AuthenticationOptionsInterface;
-use ZfcUser\Authentication\Adapter\ChainableAdapter as AdapterChain;
+use ZfcUser\Authentication\Adapter\ChainableAdapter;
 use ZfcUser\Authentication\Adapter\AdapterChainEvent as AuthEvent;
+use ZfcUser\Authentication\Adapter\AbstractAdapter;
 
-class Ldap implements AdapterChain, ServiceManagerAwareInterface {
+class Ldap extends AbstractAdapter implements ChainableAdapter, ServiceManagerAwareInterface {
 
     /**
      * @var UserMapperInterface
@@ -49,7 +50,7 @@ class Ldap implements AdapterChain, ServiceManagerAwareInterface {
 
         $mapper = new \ZfcUserLdap\Mapper\User(
             $this->getServiceManager()->get('ldap_interface'),
-            $this->getServiceManager()->get('zfcuser_module_options'),
+            $this->getServiceManager()->get('zfcuser_ldap_module_options'),
             $this->getServiceManager()->get('Config')['ldap_group_mapper'],
             $this->getServiceManager()->get('User\Entity\RoleRepository')
         );
@@ -60,25 +61,12 @@ class Ldap implements AdapterChain, ServiceManagerAwareInterface {
             $e->setIdentity($storage['identity'])
                     ->setCode(AuthenticationResult::SUCCESS)
                     ->setMessages(array('Authentication successful.'));
-            return;
+            return true;
         }
         $identity = $e->getRequest()->getPost()->get('identity');
         $credential = $e->getRequest()->getPost()->get('credential');
 
         $userObject = NULL;
-        /*
-         * In some special case scenarios some LDAP providers allow LDAP
-         * logins via email address both as uid or as mail address lookup,
-         * so to provide an interface to both we do a validator instead of
-         * a loop to verify if it's an email address or not and pull the user.
-         *
-         * Authentication will then be done on the *actual* username set in LDAP
-         * which in some cases may be case sensitive which could cause an issue
-         * where users do not exist if their email was created with upper case
-         * letters and the user types in lower case.
-         *
-         * $fields = $this->getOptions()->getAuthIdentityFields();
-         */
 
         $validator = new \Zend\Validator\EmailAddress();
         if ($validator->isValid($identity)) {
@@ -100,74 +88,29 @@ class Ldap implements AdapterChain, ServiceManagerAwareInterface {
                 $e->setCode(AuthenticationResult::FAILURE_UNCATEGORIZED)
                         ->setMessages(array('A record with the supplied identity is not active.'));
                 $this->setSatisfied(false);
-                return false;
             }
-        }
-        if ($auth = $this->getMapper()->authenticate($userObject->getUsername(), $credential) !== TRUE) {
-            // Password does not match
-            $e->setCode(AuthenticationResult::FAILURE_CREDENTIAL_INVALID)
-                    ->setMessages(array($auth));
-            $this->setSatisfied(false);
             return false;
         }
 
-        // Success!
-        $e->setIdentity($userObject->getId());
+        $auth = $this->getMapper()->authenticate($userObject->getUsername(), $credential);
+        if ($auth instanceof AuthenticationResult && $auth->getCode() == AuthenticationResult::SUCCESS) {
+            // Success!
+            $e->setIdentity($userObject->getId());
+            $this->setSatisfied(true);
 
-        $this->setSatisfied(true);
-        $storage = $this->getStorage()->read();
-        $storage['identity'] = $e->getIdentity();
-        $this->getStorage()->write($storage);
-        $e->setCode(AuthenticationResult::SUCCESS)->setMessages(array('Authentication successful.'));
-    }
+            $storage = $this->getStorage()->read();
+            $storage['identity'] = $e->getIdentity();
+            $this->getStorage()->write($storage);
+            $e->setCode(AuthenticationResult::SUCCESS)->setMessages(array('Authentication successful.'));
 
-    /**
-     * Returns the persistent storage handler
-     *
-     * Session storage is used by default unless a different storage adapter has been set.
-     *
-     * @return Storage\StorageInterface
-     */
-    public function getStorage() {
-        if (null === $this->storage) {
-            $this->setStorage(new Storage\Session(get_called_class()));
+            return true;
+        } else {
+            // Password does not match
+            $e->setCode(AuthenticationResult::FAILURE_CREDENTIAL_INVALID)
+                    ->setMessages(array('Incorrect login data'));
+            $this->setSatisfied(false);
+            return false;
         }
-
-        return $this->storage;
-    }
-
-    /**
-     * Sets the persistent storage handler
-     *
-     * @param  Storage\StorageInterface $storage
-     * @return AbstractAdapter Provides a fluent interface
-     */
-    public function setStorage(Storage\StorageInterface $storage) {
-        $this->storage = $storage;
-        return $this;
-    }
-
-    /**
-     * Check if this adapter is satisfied or not
-     *
-     * @return bool
-     */
-    public function isSatisfied() {
-        $storage = $this->getStorage()->read();
-        return (isset($storage['is_satisfied']) && true === $storage['is_satisfied']);
-    }
-
-    /**
-     * Set if this adapter is satisfied or not
-     *
-     * @param bool $bool
-     * @return AbstractAdapter
-     */
-    public function setSatisfied($bool = true) {
-        $storage = $this->getStorage()->read() ? : array();
-        $storage['is_satisfied'] = $bool;
-        $this->getStorage()->write($storage);
-        return $this;
     }
 
     public function preprocessCredential($credential) {
@@ -185,7 +128,7 @@ class Ldap implements AdapterChain, ServiceManagerAwareInterface {
      */
     public function getMapper() {
         if (null === $this->mapper) {
-            $this->mapper = $this->getServiceManager()->get('zfcuser_user_mapper');
+            $this->mapper = $this->getServiceManager()->get('zfcuser_ldap_user_mapper');
         }
         return $this->mapper;
     }
@@ -251,7 +194,7 @@ class Ldap implements AdapterChain, ServiceManagerAwareInterface {
      */
     public function getOptions() {
         if (!$this->options instanceof AuthenticationOptionsInterface) {
-            $this->setOptions($this->getServiceManager()->get('zfcuser_module_options'));
+            $this->setOptions($this->getServiceManager()->get('zfcuser_ldap_module_options'));
         }
         return $this->options;
     }
