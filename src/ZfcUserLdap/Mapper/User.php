@@ -103,10 +103,6 @@ class User extends ZfcUserMapper
         return $this->entity;
     }
 
-    public function authenticate($identity,$credential){
-        return $this->ldap->authenticate($identity, $credential);
-    }
-
     public function insert($entity, $tableName = null, HydratorInterface $hydrator = null)
     {
         return FALSE;

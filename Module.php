@@ -13,6 +13,10 @@ namespace ZfcUserLdap;
 
 use Zend\Mvc\ModuleRouteListener;
 use Zend\Mvc\MvcEvent;
+use ZfcUserLdap\Service\LdapInterface;
+use ZfcUserLdap\Options\ModuleOptions;
+use ZfcUserLdap\Mapper\User;
+use Zend\Authentication\AuthenticationService;
 
 class Module {
 
@@ -43,7 +47,7 @@ class Module {
             ),
             'factories' => array(
                 'zfcuser_auth_service' => function ($sm) {
-                    return new \Zend\Authentication\AuthenticationService(
+                    return new AuthenticationService(
                         $sm->get('ZfcUserLdap\Authentication\Storage\Db'),
                         $sm->get('ZfcUserLdap\Authentication\Adapter\AdapterChain')
                     );
@@ -55,15 +59,18 @@ class Module {
                 'ZfcUser\Authentication\Adapter\AdapterChain' => 'ZfcUserLdap\Authentication\Adapter\AdapterChainServiceFactory',
                 // End of Hack
 
-                'zfcuser_ldap_service' => 'ZfcUserLdap\ServiceFactory\Ldap',
-                'ldap_interface' => 'ZfcUserLdap\ServiceFactory\LdapServiceFactory',
+                'zfcuser_ldap_interface' => function ($sm) {
+                    $config = $sm->get('Config');
+                    return new LdapInterface($config['ldap']);
+                },
+
                 'zfcuser_ldap_module_options' => function ($sm) {
                     $config = $sm->get('Configuration');
-                    return new Options\ModuleOptions(isset($config['zfcuser']) ? $config['zfcuser'] : array());
+                    return new ModuleOptions(isset($config['zfcuser']) ? $config['zfcuser'] : array());
                 },
                 'zfcuser_ldap_user_mapper' => function ($sm) {
-                    return new \ZfcUserLdap\Mapper\User(
-                        $sm->get('ldap_interface'),
+                    return new User(
+                        $sm->get('zfcuser_ldap_interface'),
                         $sm->get('zfcuser_ldap_module_options'),
                         $sm->get('Config')['ldap_group_mapper'],
                         $sm->get('User\Entity\RoleRepository')

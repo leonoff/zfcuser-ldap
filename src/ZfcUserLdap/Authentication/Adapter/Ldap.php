@@ -46,15 +46,13 @@ class Ldap extends AbstractAdapter implements ChainableAdapter, ServiceManagerAw
      */
     protected $storage;
 
+    /**
+     * @var \ZfcUserLdap\Service\LdapInterface
+     */
+    protected $ldap;
+
     public function authenticate(AuthEvent $e) {
 
-        $mapper = new \ZfcUserLdap\Mapper\User(
-            $this->getServiceManager()->get('ldap_interface'),
-            $this->getServiceManager()->get('zfcuser_ldap_module_options'),
-            $this->getServiceManager()->get('Config')['ldap_group_mapper'],
-            $this->getServiceManager()->get('User\Entity\RoleRepository')
-        );
-        $this->setMapper($mapper);
         if ($this->isSatisfied()) {
             $storage = $this->getStorage()->read();
 
@@ -92,7 +90,7 @@ class Ldap extends AbstractAdapter implements ChainableAdapter, ServiceManagerAw
             return false;
         }
 
-        $auth = $this->getMapper()->authenticate($userObject->getUsername(), $credential);
+        $auth = $this->getLdap()->authenticate($userObject->getUsername(), $credential);
         if ($auth instanceof AuthenticationResult && $auth->getCode() == AuthenticationResult::SUCCESS) {
             // Success!
             $e->setIdentity($userObject->getId());
@@ -119,6 +117,14 @@ class Ldap extends AbstractAdapter implements ChainableAdapter, ServiceManagerAw
             return $processor($credential);
         }
         return $credential;
+    }
+
+    public function getLdap()
+    {
+        if (null === $this->ldap) {
+            $this->ldap = $this->getServiceManager()->get('zfcuser_ldap_interface');
+        }
+        return $this->ldap;
     }
 
     /**
